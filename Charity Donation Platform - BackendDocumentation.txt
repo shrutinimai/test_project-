@@ -1,0 +1,289 @@
+Charity Donation Platform - Backend API Documentation
+
+This guide lists the API endpoints for your backend.
+---------------------------------------------------------------------------------------
+Base URL
+All endpoints start with: http://localhost:5000/api
+
+Authentication
+For protected routes, include a JWT in your request header:
+
+Header: Authorization: Bearer <YOUR_JWT_TOKEN>
+
+Error Responses
+If an error occurs, you'll typically get a JSON response like this:
+
+{
+  "message": "A clear description of what went wrong."
+  // "error": "Stack trace (only in development for debugging)"
+}
+
+Common status codes:
+
+200 OK: Success
+
+201 Created: Resource successfully added
+
+400 Bad Request: Problem with your request data
+
+401 Unauthorized: No token, or invalid token
+
+403 Forbidden: You don't have permission
+
+404 Not Found: Resource doesn't exist
+
+500 Internal Server Error: Server-side issue
+----------------------------------------------------------------------------------------
+1. User & Authentication
+1.1. Register (User or Charity)
+Endpoint: POST /api/auth/register
+
+Access: Public
+
+What it does: Creates a new user. If userType is charity, also creates a pending charity profile.
+
+// Request Body Example
+{
+  "email": "newuser@example.com",
+  "password": "securepassword123",
+  "fullName": "New Donor",
+  "userType": "user" // Or "charity"
+  // If userType is "charity", add:
+  // "charityName": "Helping Hands Org",
+  // "registrationNumber": "REG12345",
+  // "mission": "Helping people around the world"
+}
+--------------------------------------------------------------------
+1.2. Login
+Endpoint: POST /api/auth/login
+
+Access: Public
+
+What it does: Logs in a user, returns a JWT. Checks if charity accounts are approved.
+
+// Request Body Example
+{
+  "email": "user@example.com",
+  "password": "securepassword123"
+}
+---------------------------------------------------------------------------------------------------
+1.3. Get User Profile
+Endpoint: GET /api/users/profile
+
+Access: Protected (User, Charity, Admin)
+
+What it does: Fetches the authenticated user's details.
+---------------------------------------------------------------------------------------------
+1.4. Update User Profile
+Endpoint: PUT /api/users/profile
+
+Access: Protected (User, Charity, Admin)
+
+What it does: Updates the authenticated user's details.
+
+// Request Body Example (provide only fields to update)
+{
+  "fullName": "Jane P. Smith",
+  "address": "123 Main St",
+  "city": "Springfield"
+}
+---------------------------------------------------------------------------------------------------
+2. Charity Management
+2.1. Get All Approved Charities
+Endpoint: GET /api/charities
+
+Access: Public
+
+What it does: Lists all approved charities.
+
+Query Params (Optional): search, limit, offset.
+---------------------------------------------------------------------------------------
+2.2. Get Single Charity Profile
+Endpoint: GET /api/charities/:id
+
+Access: Public
+
+What it does: Fetches details for a specific approved charity.
+-----------------------------------------------------------------------------------------
+2.3. Update Charity Profile (Authenticated Charity)
+Endpoint: PUT /api/charities/profile
+
+Access: Protected (Charity)
+
+What it does: Allows a logged-in charity to update its own profile.
+
+// Request Body Example (provide only fields to update)
+{
+  "name": "Global Aid Network",
+  "mission": "New mission statement",
+  "website": "https://globalaid.org"
+}
+--------------------------------------------------------------------------------
+2.4. Add Charity Project (Authenticated Charity)
+Endpoint: POST /api/charities/projects
+
+Access: Protected (Charity)
+
+What it does: Allows a logged-in charity to add a new project.
+
+// Request Body Example
+{
+  "title": "Build a School",
+  "description": "Funding for a new primary school in rural areas.",
+  "goalAmount": 50000.00,
+  "startDate": "2024-07-01",
+  "endDate": "2025-06-30"
+}
+-------------------------------------------------------------------------------------
+2.5. Get Projects for a Specific Charity
+Endpoint: GET /api/charities/:id/projects
+
+Access: Public
+
+What it does: Lists all projects for a given charity ID.
+-----------------------------------------------------------------------------------
+2.6. Set/Update Charity Overall Goal (Authenticated Charity)
+Endpoint: PUT /api/charities/goals
+
+Access: Protected (Charity)
+
+What it does: Sets or updates the overall fundraising goal for the authenticated charity.
+
+// Request Body Example
+{
+  "goalAmount": 100000.00
+}
+-----------------------------------------------------------------------------------------
+3. Donation Process
+3.1. Initiate Donation (Mock Payment)
+Endpoint: POST /api/donations/initiate
+
+Access: Protected (User)
+
+What it does: Starts a donation process (uses mock payment for now). Creates a pending donation record.
+
+// Request Body Example
+{
+  "charityId": "uuid-of-charity",
+  "projectId": "uuid-of-project", // Optional: if donating to a specific project
+  "amount": 25.00,
+  "currency": "USD",
+  "anonymous": false // Optional, defaults to false
+}
+-----------------------------------------------------------------------------------------
+3.2. Webhook for Payment Verification (Mock)
+Endpoint: POST /api/donations/verify
+
+Access: Public (Called by Payment Gateway, special handling needed)
+
+What it does: Receives payment confirmation from the mock gateway, updates donation status to completed, and updates charity/project raisedAmount.
+
+Important: This endpoint expects a raw JSON body and a mock signature header for testing. In Postman, set body to raw and JSON, and manually add a header like Stripe-Signature with any value (e.g., test-signature-123) to satisfy the mock verification.
+
+// Example Mock Request Body (simulating a successful payment)
+{
+  "type": "payment_intent.succeeded", // Or "payment.captured"
+  "data": {
+    "object": {
+      "id": "mock_transaction_id_xyz",
+      "amount": 2500, // Amount in smallest unit (e.g., cents for USD)
+      "currency": "usd",
+      "metadata": {
+        "donationId": "uuid-of-the-pending-donation", // Crucial: This links to your DB
+        "userId": "uuid-of-the-donor",
+        "charityId": "uuid-of-the-charity",
+        "projectId": "uuid-of-the-project" // Or "none"
+      }
+    }
+  }
+}
+---------------------------------------------------------------------------------------------------------
+4. Donation Tracking & Reporting
+4.1. Get User Donation History
+Endpoint: GET /api/users/donations
+
+Access: Protected (User)
+
+What it does: Lists all completed donations made by the authenticated user.
+
+Query Params (Optional): limit, offset.
+--------------------------------------------------------------------------------------------------
+4.2. Download Donation Receipt (Mock URL)
+Endpoint: GET /api/users/donations/:id/receipt
+
+Access: Protected (User)
+
+What it does: Provides a mock URL for a donation receipt.
+----------------------------------------------------------------------------------------------------
+4.3. Submit Impact Report (Charity)
+Endpoint: POST /api/charities/reports
+
+Access: Protected (Charity)
+
+What it does: Allows a logged-in charity to publish an impact report.
+
+// Request Body Example
+{
+  "projectId": "uuid-project-1", // Optional: if report is specific to a project
+  "title": "Q1 2024 Impact: School Supplies Drive",
+  "content": "Thanks to your generous donations, we provided supplies to 500 children...",
+  "reportDate": "2024-03-31",
+  "imageUrl": "https://example.com/impact_photo.jpg" // Optional
+}
+-------------------------------------------------------------------------------
+4.4. Get Impact Reports (Public)
+Endpoint: GET /api/charities/:id/reports
+
+Access: Public
+
+What it does: Lists impact reports for a given charity.
+
+Query Params (Optional): projectId.
+---------------------------------------------------------------------------------------------
+5. Admin Dashboard
+These endpoints require an Admin JWT for access.
+
+5.1. Get All Users
+Endpoint: GET /api/admin/users
+
+Access: Protected (Admin)
+
+What it does: Lists all users (donors, charities, admins).
+
+Query Params (Optional): userType (user, charity, admin), status (pending, approved, rejected - only for charities).
+------------------------------------------------------------------------------------------
+5.2. Delete User
+Endpoint: DELETE /api/admin/users/:id
+
+Access: Protected (Admin)
+
+What it does: Deletes a user account.
+----------------------------------------------------------------------------------------------
+5.3. Update Charity Status
+Endpoint: PUT /api/admin/charities/:id/status
+
+Access: Protected (Admin)
+
+What it does: Approves or rejects a charity's registration.
+
+// Request Body Example
+{
+  "status": "approved" // Or "rejected"
+}
+----------------------------------------------------------------------------------------
+5.4. Delete Charity
+Endpoint: DELETE /api/admin/charities/:id
+
+Access: Protected (Admin)
+
+What it does: Deletes a charity account (and its linked user).
+--------------------------------------------------------------------------------------------
+6. Email Notifications
+These are automatically sent by the backend. No direct API calls are needed from the frontend.
+
+Donation Confirmation: Sent to donor after a successful donation.
+
+Charity Registration Status: Sent to charity after admin approval/rejection.
+
+Other Notifications: (e.g., new impact reports from charities you donated to, reminders) could be added.
+-----------------------------------------------------------------------------------------------------
